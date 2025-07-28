@@ -1,0 +1,92 @@
+// RestaurantPOSFramework.swift
+// iOS Restaurant POS Framework
+
+import Foundation
+import UIKit
+import CoreData
+
+// MARK: - POS Models
+
+struct MenuItem: Identifiable, Codable {
+    var id: UUID = UUID()
+    var name: String
+    var price: Double
+    var category: String
+    var imageUrl: String?
+}
+
+struct OrderItem: Identifiable, Codable {
+    var id: UUID = UUID()
+    var menuItem: MenuItem
+    var quantity: Int
+}
+
+struct Order: Identifiable, Codable {
+    var id: UUID = UUID()
+    var tableNumber: Int
+    var items: [OrderItem]
+    var status: OrderStatus
+    var createdAt: Date = Date()
+
+    var total: Double {
+        items.reduce(0) { $0 + ($1.menuItem.price * Double($1.quantity)) }
+    }
+}
+
+enum OrderStatus: String, Codable {
+    case pending, preparing, served, paid, cancelled
+}
+
+// MARK: - POS Manager
+
+class POSManager {
+    static let shared = POSManager()
+    private init() {}
+
+    var menuItems: [MenuItem] = []
+    var activeOrders: [Order] = []
+
+    func createOrder(tableNumber: Int, items: [OrderItem]) -> Order {
+        let order = Order(tableNumber: tableNumber, items: items, status: .pending)
+        activeOrders.append(order)
+        return order
+    }
+
+    func updateOrderStatus(orderID: UUID, status: OrderStatus) {
+        if let index = activeOrders.firstIndex(where: { $0.id == orderID }) {
+            activeOrders[index].status = status
+        }
+    }
+
+    func getOrders(forTable tableNumber: Int) -> [Order] {
+        activeOrders.filter { $0.tableNumber == tableNumber }
+    }
+}
+
+// MARK: - Sample UI Placeholder
+
+class MenuViewController: UIViewController, UITableViewDataSource {
+    var menuTableView = UITableView()
+    var menuItems: [MenuItem] = []
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = "Menu"
+        menuItems = POSManager.shared.menuItems
+        menuTableView.dataSource = self
+        view.addSubview(menuTableView)
+        menuTableView.frame = view.bounds
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return menuItems.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
+        let item = menuItems[indexPath.row]
+        cell.textLabel?.text = item.name
+        cell.detailTextLabel?.text = "$\(item.price)"
+        return cell
+    }
+}
